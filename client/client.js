@@ -12,6 +12,13 @@ const config = {
     width: 896,
     height: 504
   },
+  physics: {
+    default: "arcade",
+    arcade: {
+        debug: true,
+        // gravity: { y: 1200 }
+    }
+  },
   scene: [BootScene, GameScene]
 }
 

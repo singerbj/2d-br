@@ -21,21 +21,15 @@ class GameScene extends Scene {
     return this.playerId++
   }
 
-  prepareToSync(player) {
-    return JSON.stringify({
-      playerId: player.playerId,
-      x: Math.round(player.x),
-      y: Math.round(player.y),
-      dead: player.dead
-    });
-  }
-
   getState() {
-    let state = ''
-    this.playersGroup.children.iterate((player) => {
-      state += this.prepareToSync(player)
-    })
-    return state
+    return JSON.stringify(this.playersGroup.children.entries.map((player) => {
+      return {
+        playerId: player.playerId,
+        x: Math.round(player.x),
+        y: Math.round(player.y),
+        dead: player.dead
+      };
+    }))
   }
 
   create() {
@@ -53,14 +47,14 @@ class GameScene extends Scene {
       })
 
       channel.on('getId', () => {
-        channel.playerId = this.getId()
-        channel.emit('getId', channel.playerId.toString(36))
+        channel.playerId = this.getId().toString()
+        channel.emit('getId', JSON.stringify({ playerId: channel.playerId }))
       })
 
       channel.on('playerMove', (data) => {
         this.playersGroup.children.iterate((player) => {
           if (player.playerId === channel.playerId) {
-            player.setMove(data)
+            player.setMove(JSON.parse(data))
           }
         })
       })
@@ -70,13 +64,14 @@ class GameScene extends Scene {
         if (dead) {
           dead.revive(channel.playerId, false)
         } else {
-          this.playersGroup.add(
-            new Player(
-              this,
-              channel.playerId,
-              Phaser.Math.RND.integerInRange(100, 700)
-            )
-          )
+          const newPlayer = new Player(
+            this,
+            channel.playerId,
+            Phaser.Math.RND.integerInRange(100, 700)
+          );
+          this.physics.add.collider(newPlayer, this.playersGroup);
+          this.playersGroup.add(newPlayer);
+          
         }
       })
 
@@ -87,20 +82,17 @@ class GameScene extends Scene {
   update() {
     let updates = []
     this.playersGroup.children.iterate((player) => {
-      let x = Math.abs(player.x - player.prevX) > 0.5
-      let y = Math.abs(player.y - player.prevY) > 0.5
-      let dead = player.dead != player.prevDead
-      if (x || y || dead) {
-        if (dead || !player.dead) {
-          updates.push(this.prepareToSync(player))
-        }
-      }
+      updates.push({
+        playerId: player.playerId,
+        x: Math.round(player.x),
+        y: Math.round(player.y),
+        dead: player.dead,
+        move: player.move
+      })
       player.postUpdate()
     })
 
-    if (updates.length > 0) {
-      this.io.room().emit('updateObjects', [updates])
-    }
+    this.io.room().emit('updateObjects', [JSON.stringify(updates)])
   }
 }
 

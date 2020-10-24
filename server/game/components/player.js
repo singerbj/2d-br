@@ -1,8 +1,11 @@
 class Player extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, playerId, x = 200, y = 200, dummy = false) {
+  constructor(scene, playerId, x = 200, y = 200) {
     super(scene, x, y, '')
     scene.add.existing(this)
     scene.physics.add.existing(this)
+
+    this.setCollideWorldBounds(true);
+    this.body.onWorldBounds = true;
 
     this.scene = scene
 
@@ -15,27 +18,11 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     this.playerId = playerId
     this.move = {}
 
-    this.setDummy(dummy)
-
     this.body.setSize(32, 48)
-
-    this.prevNoMovement = true
 
     this.setCollideWorldBounds(true)
 
     scene.events.on('update', this.update, this)
-  }
-
-  setDummy(dummy) {
-    if (dummy) {
-      this.body.setBounce(1)
-      this.scene.time.addEvent({
-        delay: Phaser.Math.RND.integerInRange(45, 90) * 1000,
-        callback: () => this.kill()
-      })
-    } else {
-      this.body.setBounce(0)
-    }
   }
 
   kill() {
@@ -43,25 +30,15 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     this.setActive(false)
   }
 
-  revive(playerId, dummy) {
+  revive(playerId) {
     this.playerId = playerId
     this.dead = false
     this.setActive(true)
-    this.setDummy(dummy)
     this.setVelocity(0)
   }
 
   setMove(data) {
-    let int = parseInt(data, 36)
-
-    let move = {
-      left: int === 1 || int === 5 ? true : false,
-      right: int === 2 || int === 6 ? true : false,
-      up: int === 4 || int === 6 || int === 5 ? true : false,
-      none: int === 8 ? true : false
-    }
-
-    this.move = move
+    this.move = data;
   }
 
   update() {
@@ -69,7 +46,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     else if (this.move.right) this.setVelocityX(160)
     else this.setVelocityX(0)
 
-    if (this.move.up && this.body.onFloor()) this.setVelocityY(-550)
+    if (this.move.up && (this.body.blocked.down || this.body.touching.down)) this.setVelocityY(-550)
   }
 
   postUpdate() {
