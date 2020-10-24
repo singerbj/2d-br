@@ -28,6 +28,8 @@ class Player extends Phaser.Physics.Arcade.Sprite {
   kill() {
     this.dead = true
     this.setActive(false)
+
+    this.body.enable = false
   }
 
   revive(playerId) {
@@ -35,6 +37,8 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     this.dead = false
     this.setActive(true)
     this.setVelocity(0)
+
+    this.body.enable = true
   }
 
   setMove(data) {
