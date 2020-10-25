@@ -1,36 +1,54 @@
-import Phaser from 'phaser'
+import Phaser from 'phaser';
+import { Vault } from '@geckos.io/snapshot-interpolation';
 
 export default class Player extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, playerId, channel, x, y) {
+  constructor(scene, playerId, channel, x, y, vx, vy, move) {
     super(scene, x, y, 'player')
-    scene.add.existing(this)
+    // this.setVelocity(vx, vy);
+    this.scene = scene;
+    this.vault = new Vault();
+
+    scene.add.existing(this);
     scene.physics.add.existing(this);
 
     this.setCollideWorldBounds(true);
     this.body.onWorldBounds = true;
 
-    this.playerId = playerId
-    this.channel = channel
-    this.move = {}
-    this.setFrame(4)
+    this.playerId = playerId;;
+    this.channel = channel;
+    this.move = move || {};
+    this.setFrame(4);
 
-    if(this.playerId === this.channel.playerId){
+    this.isClient = this.playerId === this.channel.playerId;
+
+    if(this.isClient){
       this.keys = scene.input.keyboard.addKeys({
         up: 'w',
         down: 's',
         left: 'a',
         right: 'd',
         jump: 'space'
-      })
-
-      scene.events.on('update', this.updateClient, this)
+      });
     } else {
-      scene.events.on('update', this.updateNonClient, this)
+      this.body.setAllowGravity(false);
     }
   }
 
   setMove(data) {
     this.move = data;
+  }
+
+  updateAnimation(move) {
+    if(move.left){
+      this.setLeftAnimation()
+    } 
+    if(move.right){
+      this.setRightAnimation()
+    } 
+    if(move.right === move.left){
+      this.setFrame(4)
+      delete this.lastFrameChangeTime;
+    } 
   }
 
   setLeftAnimation() {
@@ -73,48 +91,103 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  update() {
+    if(this.playerId === this.channel.playerId){
+      this.updateClient();
+    } else {
+      this.updateNonClientWithPrediction();
+    }
+    this.serverReconciliation(); 
+  }
+
+  serverReconciliation() {
+    try {
+      // get the latest snapshot from the server
+      const serverSnapshot = this.scene.SI.vault.get();
+      // get the closest player snapshot that matches the server snapshot time
+      const playerSnapshot = this.vault.get(serverSnapshot.time, true);
+
+      if (serverSnapshot && playerSnapshot) {
+        // get the current player position on the server
+        const serverPos = serverSnapshot.state.filter(s => s.playerId === this.playerId)[0];
+        if(serverPos){
+          // calculate the offset between server and client
+          const offsetX = playerSnapshot.state[0].x - serverPos.x;
+          const offsetY = playerSnapshot.state[0].y - serverPos.y;
+          const offsetVx = playerSnapshot.state[0].vx - serverPos.vx;
+          const offsetVy = playerSnapshot.state[0].vy - serverPos.vy;
+
+          // check if the player is currently on the move
+          const isMoving = this.body.velocity.x !== 0 || this.body.velocity.y !== 0;
+
+          // we correct the position faster if the player moves
+          let xCorrection = isMoving ? 3 : 6
+          let yCorrection = isMoving ? 3 : 6
+          if(this.isClient) xCorrection = xCorrection * 20;
+          if(this.isClient) yCorrection = yCorrection * 20;
+
+          // apply a step by step correction of the player's position
+          this.setX(this.x -= offsetX / xCorrection);
+          this.setY(this.y -= offsetY / yCorrection);
+          // if(this.isClient) this.setVelocity(this.body.velocity.x -= offsetVx / xCorrection, this.body.velocity.y -= offsetVy / yCorrection);
+        }
+      }
+    } catch (e) {
+      console.error("Error doing server reconciliation: " + e.message);
+    }
+  }
+
   updateClient() {
-    let move = {
-      left: false,
-      right: false,
-      up: false
-    }
+    let move = { left: false, right: false, up: false };
 
-    if (this.keys.left.isDown) {
-      move.left = true
-      
-    }
-    if (this.keys.right.isDown) {
-      move.right = true
-      
-    }
+    if (this.keys.left.isDown) move.left = true;
+    if (this.keys.right.isDown) move.right = true;
     if(move.right === move.left){
-      move.left = false
-      move.right = false
+      move.left = false;
+      move.right = false;
     }
-    if (this.keys.up.isDown || this.keys.jump.isDown) {
-      move.up = true
-      move.none = false
-    }
+    if (this.keys.up.isDown || this.keys.jump.isDown) move.up = true;
 
-    this.update(move);
+    this.setMove(move);
+
+    if (move.left) this.setVelocityX(-160);
+    else if (move.right) this.setVelocityX(160);
+    else this.setVelocityX(0);
+    if (move.up && (this.body.blocked.down || this.body.touching.down)) this.setVelocityY(-550)
+
+    this.updateAnimation(move);
     this.channel.emit('playerMove', JSON.stringify(move));
+
+    this.vault.add(
+     this.scene.SI.snapshot.create([{
+      id: this.playerId,
+      x: this.x,
+      y: this.y,
+      vx: this.body.velocity.x,
+      vy: this.body.velocity.y,
+      dead: this.dead,
+      move: this.move
+     }])
+    )
   }
 
-  updateNonClient() {
-    this.update(this.move);
-  }
+  updateNonClientWithPrediction() {
+    const serverSnapshot = this.scene.SI.vault.get();
+    const serverPlayer = serverSnapshot.state.filter(s => s.playerId === this.playerId)[0];
+    if(serverPlayer) {
 
-  update(move) {
-    if(move.left){
-      this.setLeftAnimation()
-    } 
-    if(move.right){
-      this.setRightAnimation()
-    } 
-    if(move.right === move.left){
-      this.setFrame(4)
-      delete this.lastFrameChangeTime;
-    } 
+      this.updateAnimation(serverPlayer.move);
+      this.vault.add(
+        this.scene.SI.snapshot.create([{ 
+          id: this.playerId,
+          x: this.x,
+          y: this.y,
+          vx: this.body.velocity.x,
+          vy: this.body.velocity.y,
+          dead: this.dead,
+          move: this.move
+        }])
+      );
+    }
   }
 }

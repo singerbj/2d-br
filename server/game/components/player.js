@@ -18,7 +18,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     this.playerId = playerId
     this.move = {}
 
-    this.body.setSize(32, 48)
+    this.body.setSize(32, 48);
 
     this.setCollideWorldBounds(true)
 
@@ -42,7 +42,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   setMove(data) {
-    this.move = data;
+    this.move = { ...this.move, ...data };
   }
 
   update() {

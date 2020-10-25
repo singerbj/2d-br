@@ -1,5 +1,7 @@
-const geckos = require('@geckos.io/server').default
-const { iceServers } = require('@geckos.io/server')
+const geckos = require('@geckos.io/server').default;
+const { iceServers } = require('@geckos.io/server');
+const { SnapshotInterpolation } = require('@geckos.io/snapshot-interpolation');
+const { addLatencyAndPackagesLoss } = require('../../shared/util');
 
 const { Scene } = require('phaser')
 const Player = require('./components/player')
@@ -8,6 +10,7 @@ class GameScene extends Scene {
   constructor() {
     super({ key: 'GameScene' })
     this.playerId = 0
+    this.SI = new SnapshotInterpolation()
   }
 
   init() {
@@ -27,6 +30,8 @@ class GameScene extends Scene {
         playerId: player.playerId,
         x: Math.round(player.x),
         y: Math.round(player.y),
+        vx: Math.round(player.body.velocity.x),
+        vy: Math.round(player.body.velocity.y),
         dead: player.dead
       };
     }))
@@ -38,11 +43,13 @@ class GameScene extends Scene {
     this.io.onConnection((channel) => {
       channel.onDisconnect(() => {
         console.log('Disconnect user ' + channel.id)
+        let found = false;
         this.playersGroup.children.each((player) => {
-          if (player.playerId === channel.playerId) {
-            player.kill()
+          if (!found && player.playerId === channel.playerId) {
+            player.kill();
+            found = true;
           }
-        })
+        });
         channel.room.emit('removePlayer', channel.playerId)
       })
 
@@ -52,12 +59,16 @@ class GameScene extends Scene {
       })
 
       channel.on('playerMove', (data) => {
-        this.playersGroup.children.iterate((player) => {
-          if (player.playerId === channel.playerId) {
-            player.setMove(JSON.parse(data))
-          }
-        })
-      })
+        addLatencyAndPackagesLoss(() => {
+          let found = false;
+          this.playersGroup.children.iterate((player) => {
+            if (!found && player.playerId === channel.playerId) {
+              player.setMove(JSON.parse(data));
+              found = true;
+            }
+          });
+        });
+      });
 
       channel.on('addPlayer', (data) => {
         let dead = this.playersGroup.getFirstDead()
@@ -83,16 +94,20 @@ class GameScene extends Scene {
     let updates = []
     this.playersGroup.children.iterate((player) => {
       updates.push({
+        id: player.playerId,
         playerId: player.playerId,
         x: Math.round(player.x),
         y: Math.round(player.y),
+        vx: Math.round(player.body.velocity.x),
+        vy: Math.round(player.body.velocity.y),
         dead: player.dead,
         move: player.move
       })
       player.postUpdate()
     })
-
-    this.io.room().emit('updateObjects', [JSON.stringify(updates)])
+    const snapshot = this.SI.snapshot.create(updates)
+    this.SI.vault.add(snapshot)
+    this.io.room().emit('updateObjects', snapshot)
   }
 }
 
