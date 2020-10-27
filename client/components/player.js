@@ -103,11 +103,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.graphics.strokeRect(serverPlayer.x - (this.displayWidth / 2), serverPlayer.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
 
     if(this.playerId === this.channel.playerId){
-      this.updateClient();
+      this.updateClient(serverPlayer);
+      this.serverReconciliation(); 
     } else {
-      this.updateNonClient();
+      this.updateNonClient(serverPlayer);
     }
-    this.serverReconciliation(); 
   }
 
   serverReconciliation() {
@@ -131,10 +131,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           const isMoving = this.body.velocity.x !== 0 || this.body.velocity.y !== 0;
 
           // we correct the position faster if the player moves
-          let xCorrection = isMoving ? 3 : 6
-          let yCorrection = isMoving ? 3 : 6
-          if(this.isClient) xCorrection = xCorrection * 2;
-          if(this.isClient) yCorrection = yCorrection * 2;
+          let xCorrection = isMoving ? 10 : 10
+          let yCorrection = isMoving ? 10 : 10
+          if(this.isClient) xCorrection = xCorrection * 5;
+          if(this.isClient) yCorrection = yCorrection * 5;
 
           // apply a step by step correction of the player's position
           this.setX(this.x -= offsetX / xCorrection);
@@ -181,23 +181,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     )
   }
 
-  updateNonClient() {
-    const serverSnapshot = this.scene.SI.vault.get();
-    const serverPlayer = serverSnapshot.state.filter(s => s.playerId === this.playerId)[0];
-
-    if(serverPlayer) {
-      this.updateAnimation(serverPlayer.move);
-      this.vault.add(
-        this.scene.SI.snapshot.create([{ 
-          id: this.playerId,
-          x: this.x,
-          y: this.y,
-          vx: this.body.velocity.x,
-          vy: this.body.velocity.y,
-          dead: this.dead,
-          move: this.move
-        }])
-      );
-    }
+  updateNonClient(serverPlayer) {
+    this.scene.tweens.add({
+      targets: this,
+      x: serverPlayer.x,
+      y: serverPlayer.y,
+      ease: "Linear", // 'Cubic', 'Elastic', 'Bounce', 'Back'
+      duration: 50,
+      repeat: 0,
+      yoyo: false
+    });
   }
 }
