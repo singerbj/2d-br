@@ -31,8 +31,8 @@ export default class GameScene extends Scene {
           const alpha = dead ? 0 : 1
           const newPlayer = new Player(this, playerId, this.channel, x, y, vx, vy, move);
           newPlayer.setAlpha(alpha);
-          this.playersGroup.add(newPlayer);
-          this.physics.add.collider(newPlayer, this.playersGroup);
+          // this.playersGroup.add(newPlayer);
+          // this.physics.add.collider(newPlayer, this.playersGroup);
           this.playerMap[playerId] = newPlayer;
         }
       });
@@ -47,7 +47,7 @@ export default class GameScene extends Scene {
   }
 
   async create() {
-    this.playersGroup = this.add.group()
+    // this.playersGroup = this.add.group()
 
     this.channel.on('updateObjects', (snapshot) => {
       addLatencyAndPackagesLoss(() => {

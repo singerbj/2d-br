@@ -80,7 +80,7 @@ class GameScene extends Scene {
             channel.playerId,
             Phaser.Math.RND.integerInRange(100, 700)
           );
-          this.physics.add.collider(newPlayer, this.playersGroup);
+          // this.physics.add.collider(newPlayer, this.playersGroup);
           this.playersGroup.add(newPlayer);
           
         }

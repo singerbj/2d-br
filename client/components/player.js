@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { Vault } from '@geckos.io/snapshot-interpolation';
+import server from '@geckos.io/server';
 
 export default class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, playerId, channel, x, y, vx, vy, move) {
@@ -92,10 +93,19 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   update() {
+    //draw rect
+    const serverSnapshot = this.scene.SI.vault.get();
+    const serverPlayer = serverSnapshot.state.filter(s => s.playerId === this.playerId)[0];
+
+    if(this.graphics) this.graphics.destroy();
+    this.graphics = this.scene.add.graphics();
+    this.graphics.lineStyle(1, 0xBBBB00, 1);
+    this.graphics.strokeRect(serverPlayer.x - (this.displayWidth / 2), serverPlayer.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
+
     if(this.playerId === this.channel.playerId){
       this.updateClient();
     } else {
-      this.updateNonClientWithPrediction();
+      this.updateNonClient();
     }
     this.serverReconciliation(); 
   }
@@ -123,8 +133,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           // we correct the position faster if the player moves
           let xCorrection = isMoving ? 3 : 6
           let yCorrection = isMoving ? 3 : 6
-          if(this.isClient) xCorrection = xCorrection * 20;
-          if(this.isClient) yCorrection = yCorrection * 20;
+          if(this.isClient) xCorrection = xCorrection * 2;
+          if(this.isClient) yCorrection = yCorrection * 2;
 
           // apply a step by step correction of the player's position
           this.setX(this.x -= offsetX / xCorrection);
@@ -171,11 +181,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     )
   }
 
-  updateNonClientWithPrediction() {
+  updateNonClient() {
     const serverSnapshot = this.scene.SI.vault.get();
     const serverPlayer = serverSnapshot.state.filter(s => s.playerId === this.playerId)[0];
-    if(serverPlayer) {
 
+    if(serverPlayer) {
       this.updateAnimation(serverPlayer.move);
       this.vault.add(
         this.scene.SI.snapshot.create([{ 
