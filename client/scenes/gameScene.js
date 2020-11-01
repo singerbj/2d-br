@@ -16,8 +16,20 @@ export default class GameScene extends Scene {
     this.channel = channel
     this.events.on('update', this.update, this);
   }
+
+  drawFps(dt) {
+    this.fps = (1000 / dt).toFixed(2);
+    if(!this.fpsText){
+      this.fpsText = this.add.text(0, 0, '', { fontFamily: 'monospace' });
+    } else {
+      this.fpsText.text = "Client FPS: " + this.fps + " - Server FPS: " + this.serverFps;
+    }
+  }
   
-  update() {
+  update(timestep, dt) {
+    if(!this.graphics){
+      this.graphics = this.add.graphics();
+    }
     const snapshot = this.SI.calcInterpolation('x y vx vy');
     if (snapshot) {
       const { state } = snapshot;
@@ -25,7 +37,7 @@ export default class GameScene extends Scene {
         const { playerId } = s;
         if (Object.keys(this.playerMap).includes(playerId)) {
           const player = this.playerMap[playerId];
-          player.update();
+          player.update(state, this.playerMap);
         } else {
           const { x, y, vx, vy, dead, move } = s;
           const alpha = dead ? 0 : 1
@@ -37,6 +49,7 @@ export default class GameScene extends Scene {
         }
       });
     }
+    timestep.toFixed(0) % 20 === 0 && this.drawFps(dt);
   }
 
   preload() {
@@ -53,27 +66,30 @@ export default class GameScene extends Scene {
       addLatencyAndPackagesLoss(() => {
         this.SI.snapshot.add(snapshot);
       });
-    })
+    });
 
     this.channel.on('removePlayer', (playerId) => {
       try {
-        this.playerMap[playerId].destroy()
-        delete this.playerMap[playerId]
+        this.playerMap[playerId].destroy();
+        delete this.playerMap[playerId];
       } catch (error) {
-        console.error(error.message)
+        console.error(error.message);
       }
-    })
+    });
+
+    this.channel.on('fps', (serverFps) => {
+      this.serverFps = serverFps;
+    });
 
     try {
       this.channel.on('getId', data => {
         this.playerId = JSON.parse(data).playerId;
-        this.channel.playerId = this.playerId
-        this.channel.emit('addPlayer')
+        this.channel.playerId = this.playerId;
+        this.channel.emit('addPlayer');
       })
-
-      this.channel.emit('getId')
+      this.channel.emit('getId');
     } catch (error) {
-      console.error(error.message)
+      console.error(error.message);
     }
   }
 }

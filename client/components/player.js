@@ -92,17 +92,50 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  update() {
-    //draw rect
-    const serverSnapshot = this.scene.SI.vault.get();
-    const serverPlayer = serverSnapshot.state.filter(s => s.playerId === this.playerId)[0];
+  update(state, playerMap) {
+    const serverPlayer = state.filter(s => s.playerId === this.playerId)[0];
+    this.hitbox = new Phaser.Geom.Rectangle(this.x - (this.displayWidth / 2), this.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
 
-    if(this.graphics) this.graphics.destroy();
-    this.graphics = this.scene.add.graphics();
-    this.graphics.lineStyle(1, 0xBBBB00, 1);
-    this.graphics.strokeRect(serverPlayer.x - (this.displayWidth / 2), serverPlayer.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
+    //draw playerid
+    if(!this.playerText){
+      this.playerText = this.scene.add.text(this.x, this.y - this.displayHeight, "Player " + this.playerId, { fontFamily: 'monospace' });
+    } else {
+      this.playerText.text = "Player " + this.playerId;
+      this.playerText.x = this.x - (this.playerText.width / 2);
+      this.playerText.y = this.y - this.displayHeight;
+    }
 
-    if(this.playerId === this.channel.playerId){
+    //draw server rect
+    this.scene.graphics.clear();
+    this.scene.graphics.lineStyle(1, 0xBBBB00, 1);
+    this.scene.graphics.strokeRect(this.hitbox.x, this.hitbox.y, this.hitbox.length, this.hitbox.height);
+    
+    if(this.isClient && this.x && this.y){
+      //draw aim line
+      this.angle = Phaser.Math.Angle.Between(this.x, this.y, this.scene.input.activePointer.x, this.scene.input.activePointer.y) 
+      const line = new Phaser.Geom.Line();
+      Phaser.Geom.Line.SetToAngle(line, this.x, this.y, this.angle, 2000);
+      
+      //draw pointer circle
+      const circle = new Phaser.Geom.Circle(this.scene.input.activePointer.x, this.scene.input.activePointer.y, 20);
+      this.scene.graphics.lineStyle(1, 0xBB00FF, 1);
+      this.scene.graphics.strokeCircleShape(circle);
+
+      Object.keys(playerMap).forEach((playerId) => {
+        const player = playerMap[playerId];
+        if(this.playerId !== playerId && player.hitbox){
+          const rect = player.hitbox;
+          if (Phaser.Geom.Intersects.LineToRectangle(line, rect)){
+            this.scene.graphics.lineStyle(1, 0xff0000);
+          } else {
+            this.scene.graphics.lineStyle(1, 0x0000ff);
+          }
+        }
+      })
+      this.scene.graphics.strokeLineShape(line);
+    }
+
+    if(this.isClient){
       this.updateClient(serverPlayer);
       this.serverReconciliation(); 
     } else {
@@ -147,7 +180,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  updateClient() {
+  updateClient(currentTime, serverSnapshot, serverPlayer) {
     let move = { left: false, right: false, up: false };
 
     if (this.keys.left.isDown) move.left = true;
@@ -178,16 +211,24 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       dead: this.dead,
       move: this.move
      }])
-    )
+    );
   }
 
   updateNonClient(serverPlayer) {
+    this.setVelocityX(serverPlayer.vx);
+    this.setVelocityY(serverPlayer.vy);
+
+    const xDiff = Math.abs(this.x - serverPlayer.x);
+    const yDiff = Math.abs(this.y - serverPlayer.y);
+    const potentialTweenSpeed = 100 - (xDiff > yDiff ? xDiff : yDiff);
+    const tweenSpeed = potentialTweenSpeed < 0 ? 0 : potentialTweenSpeed;
+
     this.scene.tweens.add({
       targets: this,
       x: serverPlayer.x,
       y: serverPlayer.y,
       ease: "Linear", // 'Cubic', 'Elastic', 'Bounce', 'Back'
-      duration: 50,
+      duration: tweenSpeed + 15,
       repeat: 0,
       yoyo: false
     });

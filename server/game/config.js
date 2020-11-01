@@ -6,8 +6,8 @@ const GameScene = require('./gameScene')
 const config = {
   type: Phaser.HEADLESS,
   parent: 'phaser-game',
-  width: 896,
-  height: 504,
+  width: 960,
+  height: 540,
   banner: false,
   audio: false,
   scene: [GameScene],

@@ -6,6 +6,8 @@ const { addLatencyAndPackagesLoss } = require('../../shared/util');
 const { Scene } = require('phaser')
 const Player = require('./components/player')
 
+global.phaserOnNodeFPS = 30
+
 class GameScene extends Scene {
   constructor() {
     super({ key: 'GameScene' })
@@ -90,7 +92,7 @@ class GameScene extends Scene {
     })
   }
 
-  update() {
+  update(timestep, dt) {
     let updates = []
     this.playersGroup.children.iterate((player) => {
       updates.push({
@@ -107,7 +109,8 @@ class GameScene extends Scene {
     })
     const snapshot = this.SI.snapshot.create(updates)
     this.SI.vault.add(snapshot)
-    this.io.room().emit('updateObjects', snapshot)
+    this.io.room().emit('updateObjects', snapshot);
+    this.io.room().emit('fps', (1000 / dt).toFixed(2));
   }
 }
 
