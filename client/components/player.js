@@ -117,10 +117,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       Phaser.Geom.Line.SetToAngle(line, this.x, this.y, this.angle, 2000);
       
       //draw pointer circle
-      const circle = new Phaser.Geom.Circle(this.scene.input.activePointer.x, this.scene.input.activePointer.y, 20);
-      this.scene.graphics.lineStyle(1, 0xBB00FF, 1);
+      const circle = new Phaser.Geom.Circle(this.scene.input.activePointer.x, this.scene.input.activePointer.y, 10);
+      this.scene.graphics.lineStyle(5, 0xBB00FF, 1);
       this.scene.graphics.strokeCircleShape(circle);
 
+      this.scene.graphics.lineStyle(1, 0x0000ff);
       Object.keys(playerMap).forEach((playerId) => {
         const player = playerMap[playerId];
         if(this.playerId !== playerId && player.hitbox){

@@ -10,6 +10,7 @@ export default class GameScene extends Scene {
     super({ key: 'GameScene' });
     this.playerMap = {};
     this.SI = new SnapshotInterpolation();
+    this.frameCount = 0;
   }
 
   init({ channel }) {
@@ -22,11 +23,12 @@ export default class GameScene extends Scene {
     if(!this.fpsText){
       this.fpsText = this.add.text(0, 0, '', { fontFamily: 'monospace' });
     } else {
-      this.fpsText.text = "Client FPS: " + this.fps + " - Server FPS: " + this.serverFps;
+      this.fpsText.text = "Client FPS: " + this.fps + " - Server FPS: " + this.serverFps || '-';
     }
   }
   
   update(timestep, dt) {
+    this.frameCount += 1;
     if(!this.graphics){
       this.graphics = this.add.graphics();
     }
@@ -49,7 +51,7 @@ export default class GameScene extends Scene {
         }
       });
     }
-    timestep.toFixed(0) % 20 === 0 && this.drawFps(dt);
+    this.frameCount % 12 === 0 && this.drawFps(dt);
   }
 
   preload() {

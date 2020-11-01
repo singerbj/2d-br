@@ -13,6 +13,7 @@ class GameScene extends Scene {
     super({ key: 'GameScene' })
     this.playerId = 0
     this.SI = new SnapshotInterpolation()
+    this.frameCount = 0
   }
 
   init() {
@@ -93,6 +94,7 @@ class GameScene extends Scene {
   }
 
   update(timestep, dt) {
+    this.frameCount += 1;
     let updates = []
     this.playersGroup.children.iterate((player) => {
       updates.push({
@@ -110,7 +112,7 @@ class GameScene extends Scene {
     const snapshot = this.SI.snapshot.create(updates)
     this.SI.vault.add(snapshot)
     this.io.room().emit('updateObjects', snapshot);
-    this.io.room().emit('fps', (1000 / dt).toFixed(2));
+    this.frameCount % 12 === 0 && this.io.room().emit('fps', (1000 / dt).toFixed(2));
   }
 }
 
