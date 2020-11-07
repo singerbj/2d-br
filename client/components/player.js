@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { Vault } from '@geckos.io/snapshot-interpolation';
 import server from '@geckos.io/server';
+import { rayCast } from '../../shared/rayCast';
 
 export default class Player extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, playerId, channel, x, y, vx, vy, move) {
+  constructor(scene, playerId, channel, x, y, vx, vy, move, angle) {
     super(scene, x, y, 'player')
     // this.setVelocity(vx, vy);
     this.scene = scene;
@@ -18,11 +19,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.playerId = playerId;;
     this.channel = channel;
     this.move = move || {};
+    this.angle = angle;
     this.setFrame(4);
+
+    this.hitbox = new Phaser.Geom.Rectangle(this.x - (this.displayWidth / 2), this.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
 
     this.isClient = this.playerId === this.channel.playerId;
 
     if(this.isClient){
+      // this.scene.cameras.main.startFollow(this); //TODO: add a map and then turn this on
       this.keys = scene.input.keyboard.addKeys({
         up: 'w',
         down: 's',
@@ -53,48 +58,19 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   setLeftAnimation() {
-    const now = Date.now();
-    if(!this.lastFrameChangeTime || (now - this.lastFrameChangeTime) > 100){
-      if(this.lastFrame === 3){
-        this.setFrame(2)
-        this.lastFrame = 2;
-      } else if(this.lastFrame === 2){
-        this.setFrame(1)
-        this.lastFrame = 1;
-      } else if(this.lastFrame === 1){
-        this.setFrame(0)
-        this.lastFrame = 0;
-      } else {
-        this.setFrame(3)
-        this.lastFrame = 3;
-      }
-      this.lastFrameChangeTime = now;
-    }
   }
 
   setRightAnimation() {
-    const now = Date.now();
-    if(!this.lastFrameChangeTime || (now - this.lastFrameChangeTime) > 100){
-      if(this.lastFrame === 6){
-        this.setFrame(7)
-        this.lastFrame = 7;
-      } else if(this.lastFrame === 7){
-        this.setFrame(8)
-        this.lastFrame = 8;
-      } else if(this.lastFrame === 8){
-        this.setFrame(5)
-        this.lastFrame = 5;
-      } else {
-        this.setFrame(6)
-        this.lastFrame = 6;
-      }
-      this.lastFrameChangeTime = now;
-    }
   }
 
   update(state, playerMap) {
     const serverPlayer = state.filter(s => s.playerId === this.playerId)[0];
-    this.hitbox = new Phaser.Geom.Rectangle(this.x - (this.displayWidth / 2), this.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
+    
+    // this.hitbox = new Phaser.Geom.Rectangle(this.x - (this.displayWidth / 2), this.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
+    this.hitbox.x = this.x - (this.displayWidth / 2);
+    this.hitbox.y = this.y - (this.displayHeight / 2);
+    this.hitbox.width = this.displayWidth;
+    this.hitbox.height = this.displayHeight;
 
     //draw playerid
     if(!this.playerText){
@@ -106,13 +82,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     //draw server rect
-    this.scene.graphics.clear();
     this.scene.graphics.lineStyle(1, 0xBBBB00, 1);
-    this.scene.graphics.strokeRect(this.hitbox.x, this.hitbox.y, this.hitbox.length, this.hitbox.height);
+    this.scene.graphics.strokeRect(this.hitbox.x, this.hitbox.y, this.hitbox.width, this.hitbox.height);
     
     if(this.isClient && this.x && this.y){
       //draw aim line
-      this.angle = Phaser.Math.Angle.Between(this.x, this.y, this.scene.input.activePointer.x, this.scene.input.activePointer.y) 
+      this.angle = Phaser.Math.Angle.Between(this.x, this.y, this.scene.input.activePointer.x, this.scene.input.activePointer.y);
       const line = new Phaser.Geom.Line();
       Phaser.Geom.Line.SetToAngle(line, this.x, this.y, this.angle, 2000);
       
@@ -122,17 +97,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.scene.graphics.strokeCircleShape(circle);
 
       this.scene.graphics.lineStyle(1, 0x0000ff);
-      Object.keys(playerMap).forEach((playerId) => {
-        const player = playerMap[playerId];
-        if(this.playerId !== playerId && player.hitbox){
-          const rect = player.hitbox;
-          if (Phaser.Geom.Intersects.LineToRectangle(line, rect)){
-            this.scene.graphics.lineStyle(1, 0xff0000);
-          } else {
-            this.scene.graphics.lineStyle(1, 0x0000ff);
-          }
-        }
-      })
+      const result = rayCast(this.x, this.y, this.angle, this.scene.playersGroup, 1000);
+      if (result){
+        this.scene.graphics.fillStyle(0x33ff33, 1);
+        this.scene.graphics.fillPointShape(result.intersection, 5);
+
+        this.scene.graphics.lineStyle(1, 0xff0000);
+      } else {
+        this.scene.graphics.lineStyle(1, 0x0000ff);
+      }
       this.scene.graphics.strokeLineShape(line);
     }
 
@@ -200,7 +173,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (move.up && (this.body.blocked.down || this.body.touching.down)) this.setVelocityY(-550)
 
     this.updateAnimation(move);
-    this.channel.emit('playerMove', JSON.stringify(move));
+    this.channel.emit('playerMoveAndAngle', JSON.stringify({ move, angle: this.angle }));
 
     this.vault.add(
      this.scene.SI.snapshot.create([{
@@ -210,12 +183,14 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       vx: this.body.velocity.x,
       vy: this.body.velocity.y,
       dead: this.dead,
-      move: this.move
+      move: this.move,
+      angle: this.angle
      }])
     );
   }
 
   updateNonClient(serverPlayer) {
+    this.angle = serverPlayer.angle;
     this.setVelocityX(serverPlayer.vx);
     this.setVelocityY(serverPlayer.vy);
 
@@ -223,6 +198,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const yDiff = Math.abs(this.y - serverPlayer.y);
     const potentialTweenSpeed = 100 - (xDiff > yDiff ? xDiff : yDiff);
     const tweenSpeed = potentialTweenSpeed < 0 ? 0 : potentialTweenSpeed;
+
+    const line = new Phaser.Geom.Line();
+    Phaser.Geom.Line.SetToAngle(line, this.x, this.y, this.angle, 100);
+    this.scene.graphics.lineStyle(1, 0x7777ff);
+    this.scene.graphics.strokeLineShape(line);
 
     this.scene.tweens.add({
       targets: this,

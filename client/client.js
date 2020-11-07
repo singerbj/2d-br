@@ -3,9 +3,10 @@ import '@babel/polyfill'
 import Phaser, { Game } from 'phaser'
 import BootScene from './scenes/bootScene'
 import GameScene from './scenes/gameScene'
+// import PhaserRaycaster from 'phaser-raycaster';
 
 const config = {
-  type: Phaser.AUTO,
+  type: Phaser.CANVAS,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -15,11 +16,20 @@ const config = {
   physics: {
     default: "arcade",
     arcade: {
-        debug: true,
+        // debug: true,
         gravity: { y: 1200 }
     }
   },
-  scene: [BootScene, GameScene]
+  scene: [BootScene, GameScene],
+  // plugins: {
+  //   scene: [
+  //       {
+  //           key: 'PhaserRaycaster',
+  //           plugin: PhaserRaycaster,
+  //           mapping: 'raycasterPlugin'
+  //       }
+  //   ]
+  // }
 }
 
 window.addEventListener('load', () => {

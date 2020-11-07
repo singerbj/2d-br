@@ -1,3 +1,5 @@
+const { rayCast } = require('../../../shared/rayCast');
+
 class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, playerId, x = 200, y = 200) {
     super(scene, x, y, '')
@@ -20,7 +22,9 @@ class Player extends Phaser.Physics.Arcade.Sprite {
 
     this.body.setSize(32, 48);
 
-    this.setCollideWorldBounds(true)
+    this.setCollideWorldBounds(true);
+
+    this.hitbox = new Phaser.Geom.Rectangle(this.x - (this.displayWidth / 2), this.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
 
     scene.events.on('update', this.update, this)
   }
@@ -41,11 +45,19 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     this.body.enable = true
   }
 
-  setMove(data) {
-    this.move = { ...this.move, ...data };
+  setMoveAndAngle(data) {
+    this.move = { ...this.move, ...data.move };
+    this.angle = data.angle;
   }
 
   update() {
+    this.hitbox.x = this.x - (this.displayWidth / 2);
+    this.hitbox.y = this.y - (this.displayHeight / 2);
+    this.hitbox.width = this.displayWidth;
+    this.hitbox.height = this.displayHeight;
+
+    const result = rayCast(this.x, this.y, this.angle, this.scene.playersGroup, 1000);
+
     if (this.move.left) this.setVelocityX(-160)
     else if (this.move.right) this.setVelocityX(160)
     else this.setVelocityX(0)

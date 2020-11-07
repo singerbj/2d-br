@@ -32,7 +32,8 @@ export default class GameScene extends Scene {
     if(!this.graphics){
       this.graphics = this.add.graphics();
     }
-    const snapshot = this.SI.calcInterpolation('x y vx vy');
+    this.graphics.clear();
+    const snapshot = this.SI.calcInterpolation('x y vx vy angle');
     if (snapshot) {
       const { state } = snapshot;
       state.forEach((s) => {
@@ -41,11 +42,14 @@ export default class GameScene extends Scene {
           const player = this.playerMap[playerId];
           player.update(state, this.playerMap);
         } else {
-          const { x, y, vx, vy, dead, move } = s;
+          const { x, y, vx, vy, dead, move, angle } = s;
           const alpha = dead ? 0 : 1
-          const newPlayer = new Player(this, playerId, this.channel, x, y, vx, vy, move);
+          const newPlayer = new Player(this, playerId, this.channel, x, y, vx, vy, move, angle);
           newPlayer.setAlpha(alpha);
-          // this.playersGroup.add(newPlayer);
+          if(!newPlayer.isClient) {
+            this.playersGroup.add(newPlayer);
+            // this.raycaster.mapGameObjects(this.playersGroup.getChildren(), true);
+          }
           // this.physics.add.collider(newPlayer, this.playersGroup);
           this.playerMap[playerId] = newPlayer;
         }
@@ -62,7 +66,9 @@ export default class GameScene extends Scene {
   }
 
   async create() {
-    // this.playersGroup = this.add.group()
+    this.playersGroup = this.add.group()
+    // this.raycaster = this.raycasterPlugin.createRaycaster({});
+    // this.ray = this.raycaster.createRay();
 
     this.channel.on('updateObjects', (snapshot) => {
       addLatencyAndPackagesLoss(() => {

@@ -6,7 +6,7 @@ const { addLatencyAndPackagesLoss } = require('../../shared/util');
 const { Scene } = require('phaser')
 const Player = require('./components/player')
 
-global.phaserOnNodeFPS = 30
+global.phaserOnNodeFPS = 60;
 
 class GameScene extends Scene {
   constructor() {
@@ -20,11 +20,11 @@ class GameScene extends Scene {
     this.io = geckos({
       iceServers: process.env.NODE_ENV === 'production' ? iceServers : [],
     })
-    this.io.addServer(this.game.server)
+    this.io.addServer(this.game.server);
   }
 
   getId() {
-    return this.playerId++
+    return this.playerId++;
   }
 
   getState() {
@@ -41,7 +41,9 @@ class GameScene extends Scene {
   }
 
   create() {
-    this.playersGroup = this.add.group()
+    this.playersGroup = this.add.group();
+    // this.raycaster = this.raycasterPlugin.createRaycaster({});
+    // this.ray = this.raycaster.createRay();
 
     this.io.onConnection((channel) => {
       channel.onDisconnect(() => {
@@ -61,12 +63,12 @@ class GameScene extends Scene {
         channel.emit('getId', JSON.stringify({ playerId: channel.playerId }))
       })
 
-      channel.on('playerMove', (data) => {
+      channel.on('playerMoveAndAngle', (data) => {
         addLatencyAndPackagesLoss(() => {
           let found = false;
           this.playersGroup.children.iterate((player) => {
             if (!found && player.playerId === channel.playerId) {
-              player.setMove(JSON.parse(data));
+              player.setMoveAndAngle(JSON.parse(data));
               found = true;
             }
           });
@@ -85,7 +87,7 @@ class GameScene extends Scene {
           );
           // this.physics.add.collider(newPlayer, this.playersGroup);
           this.playersGroup.add(newPlayer);
-          
+          // this.raycaster.mapGameObjects(this.playersGroup.getChildren(), true);
         }
       })
 
@@ -105,7 +107,8 @@ class GameScene extends Scene {
         vx: Math.round(player.body.velocity.x),
         vy: Math.round(player.body.velocity.y),
         dead: player.dead,
-        move: player.move
+        move: player.move,
+        angle: player.angle
       })
       player.postUpdate()
     })
