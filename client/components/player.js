@@ -20,7 +20,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.channel = channel;
     this.move = move || {};
     this.angle = angle;
-    this.setFrame(4);
+
+    this.createAnimations();
 
     this.hitbox = new Phaser.Geom.Rectangle(this.x - (this.displayWidth / 2), this.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
 
@@ -44,23 +45,26 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.move = data;
   }
 
-  updateAnimation(move) {
-    if(move.left){
-      this.setLeftAnimation()
-    } 
-    if(move.right){
-      this.setRightAnimation()
-    } 
-    if(move.right === move.left){
-      this.setFrame(4)
-      delete this.lastFrameChangeTime;
-    } 
-  }
+  createAnimations() {
+    this.scene.anims.create({
+      key: 'left',
+      frames: this.scene.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
+      frameRate: 10,
+      repeat: -1
+    });
 
-  setLeftAnimation() {
-  }
+    this.scene.anims.create({
+      key: 'idle',
+      frames: [ { key: 'player', frame: 4 } ],
+      frameRate: 20
+    });
 
-  setRightAnimation() {
+    this.scene.anims.create({
+      key: 'right',
+      frames: this.scene.anims.generateFrameNumbers('player', { start: 5, end: 8 }),
+      frameRate: 10,
+      repeat: -1
+    });
   }
 
   update(state, playerMap) {
@@ -154,6 +158,16 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  setAnimation() {
+    if(this.body.velocity.x < 0){
+      this.anims.play('left', true);
+    } else if(this.body.velocity.x > 0){
+      this.anims.play('right', true);
+    }else if(this.body.velocity.x === 0){
+      this.anims.play('idle', true);
+    }
+  }
+
   updateClient(currentTime, serverSnapshot, serverPlayer) {
     let move = { left: false, right: false, up: false };
 
@@ -172,20 +186,20 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     else this.setVelocityX(0);
     if (move.up && (this.body.blocked.down || this.body.touching.down)) this.setVelocityY(-550)
 
-    this.updateAnimation(move);
+    this.setAnimation();
     this.channel.emit('playerMoveAndAngle', JSON.stringify({ move, angle: this.angle }));
 
     this.vault.add(
-     this.scene.SI.snapshot.create([{
-      id: this.playerId,
-      x: this.x,
-      y: this.y,
-      vx: this.body.velocity.x,
-      vy: this.body.velocity.y,
-      dead: this.dead,
-      move: this.move,
-      angle: this.angle
-     }])
+      this.scene.SI.snapshot.create([{
+        id: this.playerId,
+        x: this.x,
+        y: this.y,
+        vx: this.body.velocity.x,
+        vy: this.body.velocity.y,
+        dead: this.dead,
+        move: this.move,
+        angle: this.angle
+      }])
     );
   }
 
@@ -194,22 +208,23 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocityX(serverPlayer.vx);
     this.setVelocityY(serverPlayer.vy);
 
-    const xDiff = Math.abs(this.x - serverPlayer.x);
-    const yDiff = Math.abs(this.y - serverPlayer.y);
-    const potentialTweenSpeed = 100 - (xDiff > yDiff ? xDiff : yDiff);
-    const tweenSpeed = potentialTweenSpeed < 0 ? 0 : potentialTweenSpeed;
-
+    // const xDiff = Math.abs(this.x - serverPlayer.x);
+    // const yDiff = Math.abs(this.y - serverPlayer.y);
+    // const potentialTweenSpeed = 100 - (xDiff > yDiff ? xDiff : yDiff);
+    // const tweenSpeed = potentialTweenSpeed < 0 ? 0 : potentialTweenSpeed;
     const line = new Phaser.Geom.Line();
     Phaser.Geom.Line.SetToAngle(line, this.x, this.y, this.angle, 100);
     this.scene.graphics.lineStyle(1, 0x7777ff);
     this.scene.graphics.strokeLineShape(line);
+
+    this.setAnimation();
 
     this.scene.tweens.add({
       targets: this,
       x: serverPlayer.x,
       y: serverPlayer.y,
       ease: "Linear", // 'Cubic', 'Elastic', 'Bounce', 'Back'
-      duration: tweenSpeed + 15,
+      duration: 1, //tweenSpeed + 5,
       repeat: 0,
       yoyo: false
     });
