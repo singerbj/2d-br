@@ -40,10 +40,20 @@ class GameScene extends Scene {
     }))
   }
 
+  preload() {
+    this.load.image('2dbr_ground', __dirname + '../../../assets/spritesheet_ground.png');
+    this.load.image('2dbr_tiles', __dirname + '../../../assets/spritesheet_tiles.png');
+    this.load.tilemapTiledJSON('map', __dirname + '../../../assets/2dbr.json');
+  }
+
   create() {
+    const map = this.make.tilemap({ key: 'map' });
+    const tilesetGround = map.addTilesetImage('2dbr_ground', '2dbr_ground');
+    const tilesetTiles = map.addTilesetImage('2dbr_tiles', '2dbr_tiles');
+    this.platforms = map.createStaticLayer('platform', [tilesetGround, tilesetTiles], 0, 200);
+    this.platforms.setCollisionByExclusion(-1, true);
+
     this.playersGroup = this.add.group();
-    // this.raycaster = this.raycasterPlugin.createRaycaster({});
-    // this.ray = this.raycaster.createRay();
 
     this.io.onConnection((channel) => {
       channel.onDisconnect(() => {
@@ -86,8 +96,8 @@ class GameScene extends Scene {
             Phaser.Math.RND.integerInRange(100, 700)
           );
           // this.physics.add.collider(newPlayer, this.playersGroup);
+          this.physics.add.collider(newPlayer, this.platforms);
           this.playersGroup.add(newPlayer);
-          // this.raycaster.mapGameObjects(this.playersGroup.getChildren(), true);
         }
       })
 

@@ -18,11 +18,13 @@ export default class GameScene extends Scene {
     this.events.on('update', this.update, this);
   }
 
-  drawFps(dt) {
-    this.fps = (1000 / dt).toFixed(2);
+  drawFps(dt, frameCount) {
+    if(frameCount % 12 === 0) this.fps = (1000 / dt).toFixed(2);
     if(!this.fpsText){
-      this.fpsText = this.add.text(0, 0, '', { fontFamily: 'monospace' });
+      this.fpsText = this.add.text(this.cameras.main.worldView.x + 10, this.cameras.main.worldView.y + 10, '', { fontFamily: 'monospace' });
     } else {
+      this.fpsText.x = this.cameras.main.worldView.x + 10;
+      this.fpsText.y = this.cameras.main.worldView.y + 10;
       this.fpsText.text = "Client FPS: " + this.fps + " - Server FPS: " + this.serverFps || '-';
     }
   }
@@ -31,6 +33,7 @@ export default class GameScene extends Scene {
     this.frameCount += 1;
     if(!this.graphics){
       this.graphics = this.add.graphics();
+      this.graphics.setDepth(999)
     }
     this.graphics.clear();
     const snapshot = this.SI.calcInterpolation('x y vx vy angle');
@@ -48,27 +51,34 @@ export default class GameScene extends Scene {
           newPlayer.setAlpha(alpha);
           if(!newPlayer.isClient) {
             this.playersGroup.add(newPlayer);
-            // this.raycaster.mapGameObjects(this.playersGroup.getChildren(), true);
           }
           // this.physics.add.collider(newPlayer, this.playersGroup);
+          this.physics.add.collider(newPlayer, this.platforms);
           this.playerMap[playerId] = newPlayer;
         }
       });
     }
-    this.frameCount % 12 === 0 && this.drawFps(dt);
+    this.drawFps(dt, this.frameCount);
   }
 
   preload() {
     this.load.spritesheet('player', 'player.png', {
       frameWidth: 32,
       frameHeight: 48
-    })
+    });
+    this.load.image('2dbr_ground', 'spritesheet_ground.png');
+    this.load.image('2dbr_tiles', 'spritesheet_tiles.png');
+    this.load.tilemapTiledJSON('map', '2dbr.json');
   }
 
   async create() {
+    const map = this.make.tilemap({ key: 'map' });
+    const tilesetGround = map.addTilesetImage('2dbr_ground', '2dbr_ground');
+    const tilesetTiles = map.addTilesetImage('2dbr_tiles', '2dbr_tiles');
+    this.platforms = map.createStaticLayer('platform', [tilesetGround, tilesetTiles], 0, 200);
+    this.platforms.setCollisionByExclusion(-1, true);
+
     this.playersGroup = this.add.group()
-    // this.raycaster = this.raycasterPlugin.createRaycaster({});
-    // this.ray = this.raycaster.createRay();
 
     this.channel.on('updateObjects', (snapshot) => {
       addLatencyAndPackagesLoss(() => {

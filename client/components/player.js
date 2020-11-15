@@ -13,8 +13,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setCollideWorldBounds(true);
-    this.body.onWorldBounds = true;
+    // this.setCollideWorldBounds(true);
+    // this.body.onWorldBounds = true;
 
     this.playerId = playerId;;
     this.channel = channel;
@@ -28,7 +28,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.isClient = this.playerId === this.channel.playerId;
 
     if(this.isClient){
-      // this.scene.cameras.main.startFollow(this); //TODO: add a map and then turn this on
+      this.scene.cameras.main.startFollow(this, false, 1, 1, 0, 50);
+      // this.scene.cameras.main.zoom = 10;
       this.keys = scene.input.keyboard.addKeys({
         up: 'w',
         down: 's',
@@ -69,8 +70,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
   update(state, playerMap) {
     const serverPlayer = state.filter(s => s.playerId === this.playerId)[0];
+
+    if(this.isClient){
+      this.updateClient(serverPlayer);
+      this.serverReconciliation(); 
+    } else {
+      this.updateNonClient(serverPlayer);
+    }
     
-    // this.hitbox = new Phaser.Geom.Rectangle(this.x - (this.displayWidth / 2), this.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
+    // update hitbox
     this.hitbox.x = this.x - (this.displayWidth / 2);
     this.hitbox.y = this.y - (this.displayHeight / 2);
     this.hitbox.width = this.displayWidth;
@@ -87,37 +95,34 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     //draw server rect
     this.scene.graphics.lineStyle(1, 0xBBBB00, 1);
-    this.scene.graphics.strokeRect(this.hitbox.x, this.hitbox.y, this.hitbox.width, this.hitbox.height);
+    this.scene.graphics.strokeRect(serverPlayer.x - (this.displayWidth / 2), serverPlayer.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight);
     
     if(this.isClient && this.x && this.y){
       //draw aim line
-      this.angle = Phaser.Math.Angle.Between(this.x, this.y, this.scene.input.activePointer.x, this.scene.input.activePointer.y);
-      const line = new Phaser.Geom.Line();
-      Phaser.Geom.Line.SetToAngle(line, this.x, this.y, this.angle, 2000);
+      const crosshairX = this.scene.input.mousePointer.x + this.scene.cameras.main.worldView.x;
+      const crosshairY = this.scene.input.mousePointer.y + this.scene.cameras.main.worldView.y;
+      this.angle = Phaser.Math.Angle.Between(this.x, this.y, crosshairX, crosshairY);
+      let line;
       
       //draw pointer circle
-      const circle = new Phaser.Geom.Circle(this.scene.input.activePointer.x, this.scene.input.activePointer.y, 10);
+      const circle = new Phaser.Geom.Circle(crosshairX, crosshairY, 10);
       this.scene.graphics.lineStyle(5, 0xBB00FF, 1);
       this.scene.graphics.strokeCircleShape(circle);
 
       this.scene.graphics.lineStyle(1, 0x0000ff);
-      const result = rayCast(this.x, this.y, this.angle, this.scene.playersGroup, 1000);
+      const result = rayCast(this.scene.platforms, this.x, this.y, this.angle, this.scene.playersGroup, 1000, this.scene);
       if (result){
         this.scene.graphics.fillStyle(0x33ff33, 1);
         this.scene.graphics.fillPointShape(result.intersection, 5);
 
         this.scene.graphics.lineStyle(1, 0xff0000);
+        line = new Phaser.Geom.Line(this.x, this.y, result.intersection.x, result.intersection.y);
       } else {
         this.scene.graphics.lineStyle(1, 0x0000ff);
+        line = new Phaser.Geom.Line();
+        Phaser.Geom.Line.SetToAngle(line, this.x, this.y, this.angle, 2000);
       }
       this.scene.graphics.strokeLineShape(line);
-    }
-
-    if(this.isClient){
-      this.updateClient(serverPlayer);
-      this.serverReconciliation(); 
-    } else {
-      this.updateNonClient(serverPlayer);
     }
   }
 
@@ -125,6 +130,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     try {
       // get the latest snapshot from the server
       const serverSnapshot = this.scene.SI.vault.get();
+
       // get the closest player snapshot that matches the server snapshot time
       const playerSnapshot = this.vault.get(serverSnapshot.time, true);
 
@@ -142,10 +148,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           const isMoving = this.body.velocity.x !== 0 || this.body.velocity.y !== 0;
 
           // we correct the position faster if the player moves
-          let xCorrection = isMoving ? 10 : 10
-          let yCorrection = isMoving ? 10 : 10
-          if(this.isClient) xCorrection = xCorrection * 5;
-          if(this.isClient) yCorrection = yCorrection * 5;
+          let xCorrection = isMoving ? 150 : 300
+          let yCorrection = isMoving ? 150 : 300
+          // if(this.isClient) xCorrection = xCorrection * 5;
+          // if(this.isClient) yCorrection = yCorrection * 5;
 
           // apply a step by step correction of the player's position
           this.setX(this.x -= offsetX / xCorrection);
@@ -185,6 +191,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     else if (move.right) this.setVelocityX(160);
     else this.setVelocityX(0);
     if (move.up && (this.body.blocked.down || this.body.touching.down)) this.setVelocityY(-550)
+    if(this.body.velocity.y > 300){
+      this.setVelocityY(300);
+    }
 
     this.setAnimation();
     this.channel.emit('playerMoveAndAngle', JSON.stringify({ move, angle: this.angle }));

@@ -38,7 +38,7 @@
   },
   "staticFiles": {
     "staticPath": [
-      "client/assets"
+      "assets"
     ]
   }
 }

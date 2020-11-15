@@ -6,8 +6,8 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this)
     scene.physics.add.existing(this)
 
-    this.setCollideWorldBounds(true);
-    this.body.onWorldBounds = true;
+    // this.setCollideWorldBounds(true);
+    // this.body.onWorldBounds = true;
 
     this.scene = scene
 
@@ -22,7 +22,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
 
     this.body.setSize(32, 48);
 
-    this.setCollideWorldBounds(true);
+    // this.setCollideWorldBounds(true);
 
     this.hitbox = new Phaser.Geom.Rectangle(this.x - (this.displayWidth / 2), this.y - (this.displayHeight / 2), this.displayWidth, this.displayHeight, 0);
 
@@ -56,19 +56,21 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     this.hitbox.width = this.displayWidth;
     this.hitbox.height = this.displayHeight;
 
-    const result = rayCast(this.x, this.y, this.angle, this.scene.playersGroup, 1000);
+    const result = rayCast(this.scene.platforms, this.x, this.y, this.angle, this.scene.playersGroup, 1000);
 
     if (this.move.left) this.setVelocityX(-160)
     else if (this.move.right) this.setVelocityX(160)
     else this.setVelocityX(0)
-
-    if (this.move.up && (this.body.blocked.down || this.body.touching.down)) this.setVelocityY(-550)
+    if (this.move.up && (this.body.blocked.down || this.body.touching.down)) this.setVelocityY(-550);
+    if(this.body.velocity.y > 300){
+      this.setVelocityY(400);
+    }
   }
 
   postUpdate() {
-    this.prevX = this.x
-    this.prevY = this.y
-    this.prevDead = this.dead
+    this.prevX = this.x;
+    this.prevY = this.y;
+    this.prevDead = this.dead;
   }
 }
 

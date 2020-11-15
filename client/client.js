@@ -3,7 +3,6 @@ import '@babel/polyfill'
 import Phaser, { Game } from 'phaser'
 import BootScene from './scenes/bootScene'
 import GameScene from './scenes/gameScene'
-// import PhaserRaycaster from 'phaser-raycaster';
 
 const config = {
   type: Phaser.CANVAS,
@@ -21,15 +20,6 @@ const config = {
     }
   },
   scene: [BootScene, GameScene],
-  // plugins: {
-  //   scene: [
-  //       {
-  //           key: 'PhaserRaycaster',
-  //           plugin: PhaserRaycaster,
-  //           mapping: 'raycasterPlugin'
-  //       }
-  //   ]
-  // }
 }
 
 window.addEventListener('load', () => {
